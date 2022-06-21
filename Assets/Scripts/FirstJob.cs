@@ -4,6 +4,16 @@ using UnityEngine;
 using Unity.Collections;
 using Unity.Jobs;
 
+public struct AddOneJob : IJob
+{
+    public NativeArray<float> result;
+
+    public void Execute()
+    {
+        result[0] = result[0] + 1;
+    }
+}
+
 public struct MyJob : IJob
 {
     public float a;
@@ -20,27 +30,28 @@ public class FirstJob : MonoBehaviour
 {
     private NativeArray<float> result;
 
-    private void Awake()
-    {
-        result = new NativeArray<float>(1, Allocator.TempJob);
-    }
-
     // Start is called before the first frame update
     private void Start()
     {
-        MyJob jobData = new MyJob();
+        result = new NativeArray<float>(1, Allocator.TempJob);
 
+        MyJob jobData = new MyJob();
         jobData.a = 10;
         jobData.b = 10;
         jobData.result = result;
 
-        JobHandle handle = jobData.Schedule();
-        handle.Complete();
+        AddOneJob IncJobData = new AddOneJob();
+        IncJobData.result = result;
+
+        JobHandle firstHandle = jobData.Schedule();
+        // the result of AddOneJob has dependency on the result of MyJob;
+        JobHandle secondHandle = IncJobData.Schedule(firstHandle);
+        secondHandle.Complete();
 
         float aPlusB = result[0];
-        result.Dispose();
-
         Debug.Log(aPlusB);
+
+        result.Dispose();
     }
 
     // Update is called once per frame
